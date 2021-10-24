@@ -1,0 +1,30 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "n8n.fullname" . }}
+data:
+  {{ if .Values.postgresql.enabled }}DB_TYPE: "postgresdb" {{ end }}
+  DB_POSTGRESDB_HOST: {{ include "n8n.fullname" . }}-postgresql
+  DB_POSTGRESDB_USER: {{ .Values.postgresql.postgresqlUsername }}
+  DB_POSTGRESDB_DATABASE: {{ .Values.postgresql.postgresqlDatabase }}
+  DB_POSTGRESDB_PASSWORD: {{ .Values.postgresql.postgresqlPassword }}
+
+  QUEUE_BULL_REDIS_HOST: {{ include "n8n.fullname" . }}-redis-headless
+  QUEUE_BULL_REDIS_PORT: "6379"
+  QUEUE_BULL_REDIS_DB: "0"
+
+  {{ if .Values.n8n.auth.enabled }}
+  N8N_BASIC_AUTH_ACTIVE: "true"
+  N8N_BASIC_AUTH_USER: {{ .Values.n8n.auth.username }}
+  N8N_BASIC_AUTH_PASSWORD: {{ .Values.n8n.auth.password }}
+  {{ end }}
+
+  GENERIC_TIMEZONE: {{ default .Values.n8n.timezone "UTC" }}
+  
+  WEBHOOK_URL: {{ default .Values.n8n.webhook_url "http://localhost" }}
+  EXECUTIONS_MODE: "queue"
+  N8N_DISABLE_PRODUCTION_MAIN_PROCESS: "true"
+  N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN: "true"
+
+  EXECUTIONS_DATA_PRUNE: {{ .Values.n8n.data.prune.enabled | quote}}
+  EXECUTIONS_DATA_MAX_AGE: {{ .Values.n8n.data.prune.max_age | quote }}
