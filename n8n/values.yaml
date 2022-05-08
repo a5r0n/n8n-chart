@@ -27,7 +27,7 @@ redis:
 n8n:
   timezone: ""
   webhook:
-    #TODO: use default serice url
+    # TODO: use default serice url
     url: http://localhost
   auth:
     enabled: false
