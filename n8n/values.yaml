@@ -25,6 +25,7 @@ redis:
 
 # values for N8N
 n8n:
+  log_level: "debug"
   timezone: ""
   webhook:
     # TODO: use default service url

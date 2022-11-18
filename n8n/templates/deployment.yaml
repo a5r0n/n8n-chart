@@ -102,6 +102,18 @@ spec:
             - n8n
           args: 
             - worker
+          ports:
+            - name: healthz
+              containerPort: 5679
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:

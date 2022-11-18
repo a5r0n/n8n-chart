@@ -11,9 +11,14 @@ data:
   DB_POSTGRESDB_PASSWORD: {{ .Values.postgresql.auth.password }}
   {{ end }}
 
+  N8N_METRICS: "true"
+  N8N_METRICS_PREFIX: "n8n_"
+
   QUEUE_BULL_REDIS_HOST: {{ include "n8n.fullname" . }}-redis-headless
   QUEUE_BULL_REDIS_PORT: "6379"
   QUEUE_BULL_REDIS_DB: "0"
+  QUEUE_HEALTH_CHECK_ACTIVE: "true"
+  QUEUE_HEALTH_CHECK_PORT: "5679"
 
   {{ if .Values.n8n.auth.enabled }}
   N8N_BASIC_AUTH_ACTIVE: "true"
@@ -30,3 +35,7 @@ data:
 
   EXECUTIONS_DATA_PRUNE: {{ .Values.n8n.data.prune.enabled | quote}}
   EXECUTIONS_DATA_MAX_AGE: {{ .Values.n8n.data.prune.max_age | quote }}
+
+  N8N_LOG_LEVEL: {{ .Values.n8n.log_level | default "debug" | quote }}
+  DB_LOGGING_ENABLED: {{ .Values.n8n.db_logging_enabled | default "true" | quote }}
+  DB_LOGGING_OPTIONS: {{ .Values.n8n.db_logging_options | default "all" | quote }}
