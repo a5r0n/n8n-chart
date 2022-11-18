@@ -25,9 +25,10 @@ redis:
 
 # values for N8N
 n8n:
+  log_level: "debug"
   timezone: ""
   webhook:
-    #TODO: use default serice url
+    # TODO: use default service url
     url: http://localhost
   auth:
     enabled: false
@@ -42,9 +43,10 @@ n8n:
 # values for PostgreSql helm chart
 postgresql:
   enabled: true
-  postgresqlUsername: n8n
-  postgresqlDatabase: n8n
-  postgresqlPassword: "N8nPassW0r$"
+  auth:
+    database: "n8n"
+    username: "n8n"
+    password: "N8nPassW0r$"
   persistence:
     size: 1Gi
 
