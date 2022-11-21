@@ -12,7 +12,7 @@ so install is simple:
 
 ```bash
 export HELM_EXPERIMENTAL_OCI=1
-helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.2.0
+helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.2.4
 ```
 
 example values:
@@ -22,13 +22,26 @@ example values:
 replicaCount: 5
 
 n8n:
+  encryptionKey: d9d8f70c3165f6393b7df462b09f73e2
+  webhookUrl: https://n8n.local/
   auth:
     enabled: true
     username: "n8n"
     password: "N8nPassW0r$"
 
 postgresql:
-  postgresqlPassword: "N8nPassW0r$"
+  enabled: true
+  auth:
+    database: "n8n"
+    username: "n8n"
+    password: "N8nPassW0r$"
+  persistence:
+    size: 1Gi
+
+ingress:
+  enabled: true
+  host: n8n.local
+  className: nginx
 ```
 
 see [values.yaml](./n8n/values.yaml)
