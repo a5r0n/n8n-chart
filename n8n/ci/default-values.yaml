@@ -1,0 +1,8 @@
+n8n:
+  encryptionKey: d9d8f70c3165f6393b7df462b09f73e2
+  webhookUrl: https://n8n.local/
+  auth:
+    enabled: true
+    username: "n8n"
+    password: "N8nPassW0r$"
+
