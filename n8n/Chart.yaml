@@ -4,7 +4,7 @@ description: A Helm chart for n8n.io
 
 dependencies:
   - name: redis
-    version: "16.x"
+    version: "18.x"
     repository: "https://charts.bitnami.com/bitnami"
 
   - name: postgresql
@@ -16,7 +16,7 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.2.5
+version: 0.2.6
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
