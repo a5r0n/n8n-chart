@@ -10,5 +10,6 @@
         "#\\s?renovate: image=(?<depName>.*?)\\s?appVersion:\\s?\\\"?(?<currentValue>[\\w+\\.\\-]*)\""
       ]
     }
-  ]
+  ],
+  "bumpVersion": "patch"
 }
