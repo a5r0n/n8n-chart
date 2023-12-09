@@ -24,11 +24,11 @@ jobs:
           helm push n8n-*.tgz oci://${{ vars.OCI_REGISTRY }}/${{ vars.OCI_REPOSITORY }}
       - name: Update README.md with Helm chart version
         run: |
-          sed -i "s/--version .*/--version: $(grep -oP '^version: \K.*' n8n/Chart.yaml)/" README.md
+          sed -i "s/--version .*/--version $(grep -oP '^version: \K.*' n8n/Chart.yaml)/" README.md
       - name: Commit and push changes
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git add README.md
-          git commit -m "relase: Update Helm chart version to $(grep -oP '^version \K.*' n8n/Chart.yaml)"
+          git commit -m "release: Update Helm chart version to $(grep -oP '^version: \K.*' n8n/Chart.yaml)"
           git push
