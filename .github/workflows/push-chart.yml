@@ -1,0 +1,34 @@
+name: Push Helm chart to OCI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        id: checkout
+      - uses: azure/setup-helm@v3
+        id: install_helm
+      - name: Build Helm chart
+        run: |
+          helm package ./n8n
+      - name: Login to Helm OCI
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ${{ vars.OCI_REGISTRY }} --username ${{ github.repository_owner }} --password-stdin
+      - name: Push Helm chart to OCI
+        run: |
+          helm push n8n-*.tgz oci://${{ vars.OCI_REGISTRY }}/${{ vars.OCI_REPOSITORY }}
+      - name: Update README.md with Helm chart version
+        run: |
+          sed -i "s/--version .*/--version: $(grep -oP '^version: \K.*' n8n/Chart.yaml)/" README.md
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git add README.md
+          git commit -m "relase: Update Helm chart version to $(grep -oP '^version: \K.*' n8n/Chart.yaml)"
+          git push
