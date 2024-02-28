@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         id: checkout
-      - uses: azure/setup-helm@v3
+      - uses: azure/setup-helm@v4
         id: install_helm
       - name: Build Helm chart
         run: |
