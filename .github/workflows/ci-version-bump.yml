@@ -62,7 +62,8 @@ jobs:
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
-        run: |
-          PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          COMMENT_BODY="Next version to publish after this PR is merged: $NEW_VERSION"
-          gh pr comment $PR_NUMBER --body "$COMMENT_BODY"
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            Next version to publish after this PR is merged: `${{ steps.bump-version.outputs.NEW_VERSION }}`
+          comment_tag: next_version
