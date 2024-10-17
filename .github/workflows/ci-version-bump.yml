@@ -39,6 +39,7 @@ jobs:
           fi
           echo "New version: $NEW_VERSION"
           sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
+          echo "::set-output name=NEW_VERSION::$NEW_VERSION"
 
       - name: Commit changes
         if: github.ref == 'refs/heads/main'
@@ -64,6 +65,6 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
+          comment_tag: next_version
           message: |
             Next version to publish after this PR is merged: `${{ steps.bump-version.outputs.NEW_VERSION }}`
-          comment_tag: next_version
