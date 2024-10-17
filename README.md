@@ -45,3 +45,21 @@ ingress:
 ```
 
 see [values.yaml](./n8n/values.yaml)
+
+## CI Version Bump Workflow
+
+A new workflow has been added to automate chart version bump and release. The workflow is defined in the `.github/workflows/ci-version-bump.yml` file and performs the following actions:
+
+* Bumps patch version on n8n major/minor and patch for n8n patch versions.
+* Bumps minor version for template changes.
+
+The workflow is triggered on push and pull request events to the `main` branch. It performs the following steps:
+
+1. Checks out the code.
+2. Sets up Node.js environment.
+3. Installs dependencies.
+4. Bumps the chart version based on changes.
+5. Commits the changes.
+6. Creates a release.
+
+The version bumping is done for the Helm chart version, not for a Node.js package.

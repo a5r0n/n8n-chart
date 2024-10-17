@@ -15,13 +15,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          node-version: '14'
+          python-version: '3.x'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install semver
+        run: |
+          pip install semver
 
       - name: Bump version
         id: bump-version
@@ -30,9 +31,9 @@ jobs:
           N8N_VERSION=$(grep -oP '^appVersion: "\K.*(?=")' n8n/Chart.yaml)
           TEMPLATE_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E 'n8n/templates/.*\.yaml' || true)
           if [[ $TEMPLATE_CHANGED ]]; then
-            NEW_VERSION=$(npm version minor --no-git-tag-version)
+            NEW_VERSION=$(python -c "import semver; print(semver.VersionInfo.parse('$CURRENT_VERSION').bump_minor())")
           else
-            NEW_VERSION=$(npm version patch --no-git-tag-version)
+            NEW_VERSION=$(python -c "import semver; print(semver.VersionInfo.parse('$CURRENT_VERSION').bump_patch())")
           fi
           echo "New version: $NEW_VERSION"
           sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
