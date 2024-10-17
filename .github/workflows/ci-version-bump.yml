@@ -1,0 +1,56 @@
+name: CI Version Bump
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Bump version
+        id: bump-version
+        run: |
+          CURRENT_VERSION=$(grep -oP '^version: \K.*' n8n/Chart.yaml)
+          N8N_VERSION=$(grep -oP '^appVersion: "\K.*(?=")' n8n/Chart.yaml)
+          TEMPLATE_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E 'n8n/templates/.*\.yaml' || true)
+          if [[ $TEMPLATE_CHANGED ]]; then
+            NEW_VERSION=$(npm version minor --no-git-tag-version)
+          else
+            NEW_VERSION=$(npm version patch --no-git-tag-version)
+          fi
+          echo "New version: $NEW_VERSION"
+          sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add n8n/Chart.yaml
+          git commit -m "ci: bump chart version to $NEW_VERSION"
+          git push
+
+      - name: Create release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.bump-version.outputs.NEW_VERSION }}
+          release_name: Release ${{ steps.bump-version.outputs.NEW_VERSION }}
+          body: |
+            Automated release for version ${{ steps.bump-version.outputs.NEW_VERSION }}
+          draft: false
+          prerelease: false
