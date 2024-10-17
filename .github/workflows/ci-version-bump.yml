@@ -39,6 +39,7 @@ jobs:
           sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
 
       - name: Commit changes
+        if: github.ref == 'refs/heads/main'
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -47,6 +48,7 @@ jobs:
           git push
 
       - name: Create release
+        if: github.ref == 'refs/heads/main'
         uses: actions/create-release@v1
         with:
           tag_name: ${{ steps.bump-version.outputs.NEW_VERSION }}
@@ -55,3 +57,10 @@ jobs:
             Automated release for version ${{ steps.bump-version.outputs.NEW_VERSION }}
           draft: false
           prerelease: false
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          COMMENT_BODY="Next version to publish after this PR is merged: $NEW_VERSION"
+          gh pr comment $PR_NUMBER --body "$COMMENT_BODY"

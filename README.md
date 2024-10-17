@@ -52,14 +52,17 @@ A new workflow has been added to automate chart version bump and release. The wo
 
 * Bumps patch version on n8n major/minor and patch for n8n patch versions.
 * Bumps minor version for template changes.
+* Only pushes version changes on main branch runs.
+* Comments on the next version to publish after a PR merge.
 
 The workflow is triggered on push and pull request events to the `main` branch. It performs the following steps:
 
 1. Checks out the code.
-2. Sets up Node.js environment.
-3. Installs dependencies.
+2. Sets up Python environment.
+3. Installs `python semver`.
 4. Bumps the chart version based on changes.
 5. Commits the changes.
 6. Creates a release.
+7. Comments on the next version to publish after a PR merge.
 
 The version bumping is done for the Helm chart version, not for a Node.js package.

@@ -22,6 +22,10 @@
     {
       "matchPaths": ["n8n/templates/**/*.yaml"],
       "bumpVersion": "minor"
+    },
+    {
+      "matchPaths": ["n8n/Chart.yaml"],
+      "bumpVersion": "patch"
     }
   ]
 }
