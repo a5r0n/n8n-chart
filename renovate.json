@@ -11,5 +11,21 @@
       ]
     }
   ],
-  "bumpVersion": "patch"
+  "bumpVersion": "patch",
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/n8n-io/n8n"],
+      "versioning": "semver",
+      "bumpVersion": "patch"
+    },
+    {
+      "matchPaths": ["n8n/templates/**/*.yaml"],
+      "bumpVersion": "minor"
+    },
+    {
+      "matchPaths": ["n8n/Chart.yaml"],
+      "bumpVersion": "patch"
+    }
+  ]
 }

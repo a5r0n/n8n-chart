@@ -1,0 +1,70 @@
+name: CI Version Bump
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install semver
+        run: |
+          pip install semver
+
+      - name: Bump version
+        id: bump-version
+        run: |
+          CURRENT_VERSION=$(grep -oP '^version: \K.*' n8n/Chart.yaml)
+          N8N_VERSION=$(grep -oP '^appVersion: "\K.*(?=")' n8n/Chart.yaml)
+          TEMPLATE_CHANGED=$(git diff --name-only HEAD~1 HEAD | grep -E 'n8n/templates/.*\.yaml' || true)
+          if [[ $TEMPLATE_CHANGED ]]; then
+            NEW_VERSION=$(python -c "import semver; print(semver.VersionInfo.parse('$CURRENT_VERSION').bump_minor())")
+          else
+            NEW_VERSION=$(python -c "import semver; print(semver.VersionInfo.parse('$CURRENT_VERSION').bump_patch())")
+          fi
+          echo "New version: $NEW_VERSION"
+          sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
+          echo "::set-output name=NEW_VERSION::$NEW_VERSION"
+
+      - name: Commit changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add n8n/Chart.yaml
+          git commit -m "ci: bump chart version to $NEW_VERSION"
+          git push
+
+      - name: Create release
+        if: github.ref == 'refs/heads/main'
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.bump-version.outputs.NEW_VERSION }}
+          release_name: Release ${{ steps.bump-version.outputs.NEW_VERSION }}
+          body: |
+            Automated release for version ${{ steps.bump-version.outputs.NEW_VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment_tag: next_version
+          message: |
+            Next version to publish after this PR is merged: `${{ steps.bump-version.outputs.NEW_VERSION }}`
