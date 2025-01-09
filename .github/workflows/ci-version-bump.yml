@@ -39,6 +39,7 @@ jobs:
           fi
           echo "New version: $NEW_VERSION"
           sed -i "s/^version: .*/version: $NEW_VERSION/" n8n/Chart.yaml
+          sed -i "s/--version [0-9.]*/--version $NEW_VERSION/" README.md
           echo "::set-output name=NEW_VERSION::$NEW_VERSION"
 
       - name: Commit changes
@@ -47,7 +48,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add n8n/Chart.yaml
-          git commit -m "ci: bump chart version to $NEW_VERSION"
+          git commit -m "ci: bump chart version to ${{ steps.bump-version.outputs.NEW_VERSION }}"
           git push
 
       - name: Create release
