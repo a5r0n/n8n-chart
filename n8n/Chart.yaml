@@ -14,6 +14,7 @@ dependencies:
   - name: cloudflare-tunnel-remote
     version: "0.1.2"
     repository: "https://cloudflare.github.io/helm-charts"
+    condition: cloudflare-tunnel-remote.enabled
 
 type: application
 

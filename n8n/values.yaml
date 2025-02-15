@@ -121,5 +121,6 @@ tolerations: []
 affinity: {}
 
 cloudflare-tunnel-remote:
+  enabled: false
   cloudflare:
     tunnel_token: ""

@@ -75,6 +75,7 @@ The version bumping is done for the Helm chart version, not for a Node.js packag
 3. **Configure Docker**: Select Docker as the platform. Copy the token displayed next to the `--token` switch and add it to your `values.yaml` file:
     ```yaml
     cloudflare-tunnel-remote:
+      enabled: true
       cloudflare:
         tunnel_token: "eyJhIjoiMjRlMzR..."
     ```
@@ -82,3 +83,5 @@ The version bumping is done for the Helm chart version, not for a Node.js packag
 4. **Set Subdomain and Domain**: Configure the desired subdomain and domain, and set the service URL, e.g., `http://n8n-main`.
 
 5. **Configure Webhook**: If you need a webhook, add another public hostname with a different path pointing to `http://n8n-webhook`. You can check the webhook health at `/healthz`.
+
+[More info](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/)
