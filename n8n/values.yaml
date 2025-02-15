@@ -119,3 +119,7 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+cloudflare-tunnel-remote:
+  cloudflare:
+    tunnel_token: ""

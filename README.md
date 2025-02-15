@@ -66,3 +66,19 @@ The workflow is triggered on push and pull request events to the `main` branch. 
 7. Comments on the next version to publish after a PR merge.
 
 The version bumping is done for the Helm chart version, not for a Node.js package.
+
+## Cloudflared
+1. **Log in to Cloudflare**: Access your Cloudflare account and navigate to the Zero Trust section. Under the Networks menu, find the Tunnels option.
+
+2. **Create a New Tunnel**: Create a new tunnel, select the Cloudflared type, provide an appropriate name, and save the tunnel.
+
+3. **Configure Docker**: Select Docker as the platform. Copy the token displayed next to the `--token` switch and add it to your `values.yaml` file:
+    ```yaml
+    cloudflare-tunnel-remote:
+      cloudflare:
+        tunnel_token: "eyJhIjoiMjRlMzR..."
+    ```
+
+4. **Set Subdomain and Domain**: Configure the desired subdomain and domain, and set the service URL, e.g., `http://n8n-main`.
+
+5. **Configure Webhook**: If you need a webhook, add another public hostname with a different path pointing to `http://n8n-webhook`. You can check the webhook health at `/healthz`.
