@@ -11,11 +11,6 @@ dependencies:
     version: "16.4.7"
     repository: "https://charts.bitnami.com/bitnami"
 
-  - name: cloudflare-tunnel-remote
-    version: "0.1.2"
-    repository: "https://cloudflare.github.io/helm-charts"
-    condition: cloudflare-tunnel-remote.enabled
-
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
@@ -29,4 +24,4 @@ version: 0.2.16
 # It is recommended to use it with quotes.
 
 # renovate: image=ghcr.io/n8n-io/n8n
-appVersion: "1.78.1"
+appVersion: "1.80.0"
