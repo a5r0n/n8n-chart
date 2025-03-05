@@ -27,9 +27,7 @@ redis:
 n8n:
   log_level: "debug"
   timezone: ""
-  webhook:
-    # TODO: use default service url
-    url: http://localhost
+  webhookUrl: "http://localhost"
   auth:
     enabled: false
     username: "n8n"
@@ -39,6 +37,10 @@ n8n:
       enabled: true
       # prune old executions data after X hours
       max_age: "72"
+  # Additional environment variables to add to the configmap
+  extraEnvs: {}
+    # CUSTOM_VAR1: "value1"
+    # CUSTOM_VAR2: "value2"
 
 # values for PostgreSql helm chart
 postgresql:
