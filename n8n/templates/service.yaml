@@ -9,6 +9,7 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http
+      nodePort: {{ .Values.service.mainNodePort }}
       protocol: TCP
       name: http
   selector:
@@ -26,6 +27,7 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http
+      nodePort: {{ .Values.service.webhookNodePort }}
       protocol: TCP
       name: http
   selector:
