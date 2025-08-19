@@ -40,3 +40,8 @@ data:
   N8N_LOG_LEVEL: {{ .Values.n8n.log_level | default "debug" | quote }}
   DB_LOGGING_ENABLED: {{ .Values.n8n.db_logging_enabled | default "true" | quote }}
   DB_LOGGING_OPTIONS: {{ .Values.n8n.db_logging_options | default "all" | quote }}
+  
+  {{- with .Values.n8n.extraEnvs }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  
