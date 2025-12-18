@@ -12,6 +12,8 @@ image:
 
 # values for Redis helm chart
 redis:
+  image:
+    repository: bitnamilegacy/postgresql
   architecture: standalone
   auth:
     enabled: false
@@ -44,6 +46,8 @@ n8n:
 
 # values for PostgreSql helm chart
 postgresql:
+  image:
+    repository: bitnamilegacy/postgresql
   enabled: true
   auth:
     database: "n8n"
