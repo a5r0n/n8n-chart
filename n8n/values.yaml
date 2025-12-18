@@ -13,7 +13,7 @@ image:
 # values for Redis helm chart
 redis:
   image:
-    repository: bitnamilegacy/postgresql
+    repository: bitnamilegacy/redis
   architecture: standalone
   auth:
     enabled: false
