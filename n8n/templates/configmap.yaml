@@ -32,7 +32,7 @@ data:
   WEBHOOK_URL: {{ .Values.n8n.webhookUrl | default "http://localhost" }}
   EXECUTIONS_MODE: "queue"
   N8N_DISABLE_PRODUCTION_MAIN_PROCESS: "true"
-  N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN: "true"
+  OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
 
   EXECUTIONS_DATA_PRUNE: {{ .Values.n8n.data.prune.enabled | quote}}
   EXECUTIONS_DATA_MAX_AGE: {{ .Values.n8n.data.prune.max_age | quote }}
