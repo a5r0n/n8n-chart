@@ -118,6 +118,11 @@ spec:
               path: /healthz
               port: healthz
             initialDelaySeconds: 30
+          env:
+            - name: N8N_PORT
+              value: "5679"
+            - name: N8N_RUNNERS_BROKER_PORT
+              value: "5678"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:
