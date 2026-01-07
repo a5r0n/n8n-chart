@@ -12,7 +12,7 @@ so install is simple:
 
 ```bash
 export HELM_EXPERIMENTAL_OCI=1
-helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.4.6
+helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.4.7
 ```
 
 example values:
