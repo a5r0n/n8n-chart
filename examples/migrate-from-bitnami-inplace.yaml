@@ -1,0 +1,48 @@
+# Migrate from Bitnami PostgreSQL → in-place PVC adoption (Option B)
+#
+# Setting postgresql.bitnami.migrate: true triggers a fully-automated
+# pre-upgrade Job that handles the entire migration:
+#
+#   1. Deletes old n8n Deployments (selector labels changed — immutable field)
+#   2. Annotates the Bitnami Secret with resource-policy=keep so Helm won't
+#      prune it when existingSecret is set
+#   3. Deletes the Bitnami StatefulSet and waits for the pod to terminate
+#   4. Copies data from Bitnami's layout (data/) to CloudPirates' layout
+#      (pgdata/ for PG<18, <major>/docker/ for PG≥18) and fixes ownership
+#
+# No manual kubectl steps required — just set these values and helm upgrade.
+#
+# ── Usage ───────────────────────────────────────────────────────────────────
+#
+#   helm upgrade <release> oci://ghcr.io/a5r0n/charts/n8n --version 0.5.x \
+#     -f this-file.yaml -f your-other-values.yaml
+#
+# ── After the upgrade ───────────────────────────────────────────────────────
+#
+#   Remove postgresql.bitnami.migrate: true (or set to false).
+#   It is safe to leave existingSecret and adminPasswordKey in place long-term.
+#
+# ── Critical: pin your PostgreSQL major version ──────────────────────────────
+#
+#   CloudPirates defaults to PG 18. Mounting PG 15/16/17 data with PG 18
+#   will crash the database. Check your current version first:
+#
+#     kubectl exec <release>-postgresql-0 -n <namespace> -- postgres --version
+#
+#   Then set image.tag below to match (e.g. "15", "16", "17").
+
+n8n:
+  encryptionKey: ""   # keep your existing key — do NOT change it
+
+postgresql:
+  enabled: true
+  image:
+    tag: "15"           # ← CHANGE to your actual PG major (check command above)
+  auth:
+    username: "n8n"     # must match what Bitnami had
+    database: "n8n"     # must match what Bitnami had
+    existingSecret: "<release>-postgresql"   # ← replace with your release name
+    secretKeys:
+      adminPasswordKey: "password"           # Bitnami's key name
+  bitnami:
+    migrate: true       # triggers the automated migration Job — remove after upgrade

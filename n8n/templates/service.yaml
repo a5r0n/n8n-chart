@@ -14,6 +14,7 @@ spec:
   selector:
     {{- include "n8n.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: main
+{{- if eq .Values.n8n.executionMode "queue" }}
 ---
 apiVersion: v1
 kind: Service
@@ -31,3 +32,4 @@ spec:
   selector:
     {{- include "n8n.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: webhook
+{{- end }}

@@ -1,0 +1,94 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+release:
+  name: n8n
+  namespace: default
+tests:
+  - it: queue mode renders main, worker and webhook Deployments
+    set:
+      n8n.encryptionKey: testkey
+    asserts:
+      - hasDocuments: { count: 3 }
+
+  - it: regular mode renders only the main Deployment
+    set:
+      n8n.encryptionKey: testkey
+      n8n.executionMode: regular
+      valkey.enabled: false
+    asserts:
+      - hasDocuments: { count: 1 }
+      - equal: { path: "metadata.name", value: "n8n-main" }
+
+  - it: main wires DB password from the bundled subchart Secret
+    set:
+      n8n.encryptionKey: testkey
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: DB_POSTGRESDB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: n8n-postgresql
+                key: postgres-password
+
+  - it: in-place migration wires DB password from existingSecret using adminPasswordKey
+    set:
+      n8n.encryptionKey: testkey
+      postgresql.auth.existingSecret: n8n-postgresql
+      postgresql.auth.secretKeys.adminPasswordKey: password
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: DB_POSTGRESDB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: n8n-postgresql
+                key: password
+
+  - it: bundled Valkey with auth enabled wires QUEUE_BULL_REDIS_PASSWORD from the subchart Secret
+    set:
+      n8n.encryptionKey: testkey
+      valkey.auth.enabled: true
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: QUEUE_BULL_REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: n8n-valkey
+                key: redis-password
+
+  - it: external mode wires DB/Valkey passwords and existing-secret encryption key
+    set:
+      n8n.existingSecret: my-n8n-secret
+      postgresql.enabled: false
+      postgresql.external.host: pg.example.com
+      postgresql.external.existingSecret: pg-cred
+      valkey.enabled: false
+      valkey.external.host: valkey.example.com
+      valkey.external.existingSecret: valkey-cred
+    documentIndex: 0
+    asserts:
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: N8N_ENCRYPTION_KEY
+            valueFrom:
+              secretKeyRef:
+                name: my-n8n-secret
+                key: encryption-key
+      - contains:
+          path: "spec.template.spec.containers[0].env"
+          content:
+            name: QUEUE_BULL_REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: valkey-cred
+                key: redis-password

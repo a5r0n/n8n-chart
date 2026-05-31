@@ -1,0 +1,39 @@
+# Migrate from Bitnami PostgreSQL → zero-migration (recommended)
+#
+# If you were running the old Bitnami postgresql subchart (removed when the
+# Bitnami public catalog was deleted 2025-09-29), this is the safest upgrade
+# path: keep the old StatefulSet running untouched and point n8n at it via
+# external mode.  No data migration required.
+#
+# Steps:
+#   1. Find your old release name (e.g. "n8n") and namespace.
+#   2. IMPORTANT: annotate the old Bitnami resources with resource-policy=keep
+#      so Helm does not prune them when postgresql.enabled flips to false:
+#
+#        for kind in statefulset service secret; do
+#          kubectl annotate $kind <release>-postgresql \
+#            helm.sh/resource-policy=keep -n <namespace>
+#        done
+#
+#   3. The Bitnami Secret was named "<release>-postgresql"; the password key
+#      was "password" (not "postgres-password").
+#   4. helm upgrade n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.5.x \
+#        -f this-file.yaml -f your-other-values.yaml
+#
+# After the upgrade the old StatefulSet continues to serve data.  When you're
+# ready to decommission it, do a pg_dump/restore into a fresh instance and
+# switch host/existingSecret accordingly.
+
+n8n:
+  encryptionKey: ""          # keep your existing key — do NOT change it
+  existingSecret: ""         # or bring-your-own Secret — see README
+
+postgresql:
+  enabled: false             # disable the bundled CloudPirates subchart
+  external:
+    host: "<release>-postgresql"          # e.g. n8n-postgresql
+    port: 5432
+    database: "n8n"                       # whatever you had before
+    username: "n8n"                       # whatever you had before
+    existingSecret: "<release>-postgresql"  # the old Bitnami Secret
+    existingSecretPasswordKey: "password"   # Bitnami used "password", not "postgres-password"

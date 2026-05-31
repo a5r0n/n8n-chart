@@ -1,0 +1,14 @@
+# ct install: single-process (regular) execution mode — only the main
+# Deployment, no Valkey required.
+---
+n8n:
+  encryptionKey: d9d8f70c3165f6393b7df462b09f73e2
+  executionMode: regular
+postgresql:
+  enabled: true
+  auth:
+    username: n8n
+    database: n8n
+    password: n8n
+valkey:
+  enabled: false

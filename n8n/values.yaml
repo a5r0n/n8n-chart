@@ -2,6 +2,8 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# Number of n8n worker replicas (queue execution mode only).
+# Deprecated: prefer `worker.replicaCount`. Kept as a fallback for compatibility.
 replicaCount: 1
 
 image:
@@ -10,29 +12,30 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# values for Redis helm chart
-redis:
-  image:
-    repository: bitnamilegacy/redis
-  architecture: standalone
-  auth:
-    enabled: false
-  master:
-    persistence:
-      size: 1Gi
-  replica:
-    replicaCount: 3
-    persistence:
-      size: 1Gi
-
 # values for N8N
 n8n:
   log_level: "debug"
   timezone: ""
   webhookUrl: "http://localhost"
+
+  # Execution topology:
+  #   queue   - main + webhook + worker Deployments; requires Valkey/Redis (default).
+  #   regular - single main process; no worker/webhook; Valkey/Redis not required.
+  executionMode: queue
+
+  # The encryption key protects all stored credentials. KEEP IT STABLE across
+  # upgrades, or you permanently lose access to saved credentials.
+  # Provide exactly one of:
+  #   encryptionKey: "<value>"     -> the chart creates a Secret holding the key
+  #   existingSecret: "my-secret"  -> use a Secret you created (key = existingSecretKey)
+  encryptionKey: ""
+  existingSecret: ""
+  existingSecretKey: encryption-key
+
   auth:
     enabled: false
     username: "n8n"
+    # Basic-auth password. Rendered into the chart-managed Secret (not the ConfigMap).
     password: "N8nPassW0r$"
   data:
     prune:
@@ -44,17 +47,60 @@ n8n:
     # CUSTOM_VAR1: "value1"
     # CUSTOM_VAR2: "value2"
 
-# values for PostgreSql helm chart
+# -- PostgreSQL --------------------------------------------------------------
+# enabled=true  -> deploy the bundled CloudPirates PostgreSQL subchart.
+# enabled=false -> use an external/managed Postgres via postgresql.external.*.
 postgresql:
-  image:
-    repository: bitnamilegacy/postgresql
   enabled: true
   auth:
+    username: "n8n"
+    database: "n8n"
+    # Convenience password for the bundled DB only. For production prefer
+    # postgresql.auth.existingSecret, or an external database.
+    password: "n8n"
+    # Reuse an existing Secret for the bundled DB password (key: postgres-password).
+    existingSecret: ""
+  # image:
+  #   tag: ""   # Pin a PostgreSQL major (bundled default is 18). Changing the
+  #             # major on an existing data volume requires a dump/restore.
+
+  # One-time Bitnami migration helper.
+  # Set migrate: true on the upgrade FROM Bitnami to CloudPirates PostgreSQL.
+  # A pre-upgrade Job copies the Bitnami data directory (data/) to the
+  # CloudPirates layout (pgdata/) and fixes ownership automatically.
+  # Remove or set to false after the upgrade succeeds.
+  bitnami:
+    migrate: false
+    # Image used by the pre-upgrade Job init container to run kubectl commands.
+    # Must be a public image with kubectl available.
+    kubectlImage: alpine/k8s:1.30.0
+
+  external:
+    # Set host (and existingSecret) when postgresql.enabled=false.
+    host: ""
+    port: 5432
     database: "n8n"
     username: "n8n"
-    password: "N8nPassW0r$"
-  persistence:
-    size: 1Gi
+    existingSecret: ""
+    existingSecretPasswordKey: postgres-password
+
+# -- Valkey (Redis-compatible) ----------------------------------------------
+# Used only in queue execution mode.
+# enabled=true  -> deploy the bundled valkey-io Valkey subchart.
+# enabled=false -> use an external Valkey/Redis via valkey.external.*.
+valkey:
+  enabled: true
+  auth:
+    enabled: false
+  external:
+    # Set host when valkey.enabled=false (queue mode).
+    host: ""
+    port: 6379
+    database: "0"
+    username: ""
+    # Optional Secret holding the external Valkey/Redis password.
+    existingSecret: ""
+    existingSecretPasswordKey: redis-password
 
 imagePullSecrets: []
 nameOverride: ""
@@ -84,6 +130,11 @@ securityContext:
   # runAsNonRoot: true
   # runAsUser: 1000
 
+# Worker Deployment settings (queue mode only).
+worker:
+  # Number of worker replicas. Falls back to the top-level `replicaCount`.
+  replicaCount: 1
+
 service:
   type: ClusterIP
   port: 80
@@ -112,13 +163,6 @@ resources:
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
-
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 

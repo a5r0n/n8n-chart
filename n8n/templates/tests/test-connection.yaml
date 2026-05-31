@@ -13,6 +13,7 @@ spec:
       command: ['wget']
       args: ['http://{{ include "n8n.fullname" . }}-main:{{ .Values.service.port }}/healthz']
   restartPolicy: Never
+{{- if eq .Values.n8n.executionMode "queue" }}
 ---
 apiVersion: v1
 kind: Pod
@@ -29,3 +30,4 @@ spec:
       command: ['wget']
       args: ['http://{{ include "n8n.fullname" . }}-webhook:{{ .Values.service.port }}/healthz']
   restartPolicy: Never
+{{- end }}

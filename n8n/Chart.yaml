@@ -3,13 +3,21 @@ name: n8n
 description: A Helm chart for n8n.io
 
 dependencies:
-  - name: redis
-    version: "24.x"
-    repository: "https://charts.bitnami.com/bitnami"
+  # PostgreSQL: CloudPirates' OSS chart (drop-in replacement for the deleted
+  # Bitnami catalog). Aliased to "postgresql" so existing postgresql.* values
+  # keep working. Disable with postgresql.enabled=false to use an external DB.
+  - name: postgres
+    alias: postgresql
+    version: "0.19.5"
+    repository: "oci://registry-1.docker.io/cloudpirates"
+    condition: postgresql.enabled
 
-  - name: postgresql
-    version: "18.x"
-    repository: "https://charts.bitnami.com/bitnami"
+  # Valkey: the official valkey-io chart, replacing the Bitnami redis subchart.
+  # Disable with valkey.enabled=false to use an external Valkey/Redis.
+  - name: valkey
+    version: "0.9.4"
+    repository: "https://valkey.io/valkey-helm/"
+    condition: valkey.enabled
 
 type: application
 

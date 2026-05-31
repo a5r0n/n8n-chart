@@ -1,0 +1,22 @@
+# ct install: external PostgreSQL + Valkey (bundled subcharts disabled).
+# The lint-test workflow pre-creates the pg-fixture / valkey-fixture Services
+# and the referenced Secrets in the install namespace before `ct install`.
+---
+n8n:
+  # Encryption key supplied via a pre-created Secret (key: encryption-key).
+  existingSecret: n8n-enc
+  webhookUrl: https://n8n.local/
+postgresql:
+  enabled: false
+  external:
+    host: pg-fixture
+    port: 5432
+    database: n8n
+    username: n8n
+    existingSecret: pg-cred
+    existingSecretPasswordKey: postgres-password
+valkey:
+  enabled: false
+  external:
+    host: valkey-fixture
+    port: 6379

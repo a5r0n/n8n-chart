@@ -1,0 +1,49 @@
+suite: configmap
+templates:
+  - templates/configmap.yaml
+release:
+  name: n8n
+  namespace: default
+tests:
+  - it: bundled mode points DB/Valkey at the subchart services and has no secrets
+    set:
+      n8n.encryptionKey: testkey
+    asserts:
+      - equal: { path: "data.DB_TYPE", value: "postgresdb" }
+      - equal: { path: "data.DB_POSTGRESDB_HOST", value: "n8n-postgresql" }
+      - equal: { path: "data.DB_POSTGRESDB_PORT", value: "5432" }
+      - equal: { path: "data.DB_POSTGRESDB_USER", value: "n8n" }
+      - equal: { path: "data.DB_POSTGRESDB_DATABASE", value: "n8n" }
+      - equal: { path: "data.EXECUTIONS_MODE", value: "queue" }
+      - equal: { path: "data.QUEUE_BULL_REDIS_HOST", value: "n8n-valkey" }
+      - equal: { path: "data.QUEUE_BULL_REDIS_PORT", value: "6379" }
+      - notExists: { path: "data.DB_POSTGRESDB_PASSWORD" }
+      - notExists: { path: "data.N8N_ENCRYPTION_KEY" }
+      - notExists: { path: "data.N8N_BASIC_AUTH_PASSWORD" }
+
+  - it: external mode renders external endpoints
+    set:
+      n8n.encryptionKey: testkey
+      postgresql.enabled: false
+      postgresql.external.host: pg.example.com
+      postgresql.external.database: n8ndb
+      postgresql.external.username: n8nuser
+      postgresql.external.existingSecret: pg-cred
+      valkey.enabled: false
+      valkey.external.host: valkey.example.com
+      valkey.external.existingSecret: valkey-cred
+    asserts:
+      - equal: { path: "data.DB_POSTGRESDB_HOST", value: "pg.example.com" }
+      - equal: { path: "data.DB_POSTGRESDB_DATABASE", value: "n8ndb" }
+      - equal: { path: "data.DB_POSTGRESDB_USER", value: "n8nuser" }
+      - equal: { path: "data.QUEUE_BULL_REDIS_HOST", value: "valkey.example.com" }
+
+  - it: regular mode omits all queue env
+    set:
+      n8n.encryptionKey: testkey
+      n8n.executionMode: regular
+      valkey.enabled: false
+    asserts:
+      - equal: { path: "data.EXECUTIONS_MODE", value: "regular" }
+      - notExists: { path: "data.QUEUE_BULL_REDIS_HOST" }
+      - notExists: { path: "data.N8N_DISABLE_PRODUCTION_MAIN_PROCESS" }

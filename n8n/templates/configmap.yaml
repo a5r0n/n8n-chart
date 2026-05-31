@@ -1,47 +1,50 @@
+{{- include "n8n.validate" . -}}
 kind: ConfigMap
 apiVersion: v1
 metadata:
   name: {{ include "n8n.fullname" . }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
 data:
-  N8N_ENCRYPTION_KEY: {{ .Values.n8n.encryptionKey | required "encryptionKey is required to make sure u won't lose access to credentials" }}
-  {{ if .Values.postgresql.enabled }}
   DB_TYPE: "postgresdb"
-  DB_POSTGRESDB_HOST: {{ include "n8n.fullname" . }}-postgresql
-  DB_POSTGRESDB_USER: {{ .Values.postgresql.auth.username }}
-  DB_POSTGRESDB_DATABASE: {{ .Values.postgresql.auth.database }}
-  DB_POSTGRESDB_PASSWORD: {{ .Values.postgresql.auth.password }}
-  {{ end }}
+  DB_POSTGRESDB_HOST: {{ include "n8n.pg.host" . | quote }}
+  DB_POSTGRESDB_PORT: {{ include "n8n.pg.port" . | quote }}
+  DB_POSTGRESDB_USER: {{ include "n8n.pg.username" . | quote }}
+  DB_POSTGRESDB_DATABASE: {{ include "n8n.pg.database" . | quote }}
 
   N8N_METRICS: "true"
   N8N_METRICS_PREFIX: "n8n_"
 
-  QUEUE_BULL_REDIS_HOST: {{ include "n8n.fullname" . }}-redis-headless
-  QUEUE_BULL_REDIS_PORT: "6379"
-  QUEUE_BULL_REDIS_DB: "0"
-  QUEUE_HEALTH_CHECK_ACTIVE: "true"
-  QUEUE_HEALTH_CHECK_PORT: "5679"
-
-  {{ if .Values.n8n.auth.enabled }}
-  N8N_BASIC_AUTH_ACTIVE: "true"
-  N8N_BASIC_AUTH_USER: {{ .Values.n8n.auth.username }}
-  N8N_BASIC_AUTH_PASSWORD: {{ .Values.n8n.auth.password }}
-  {{ end }}
-
-  GENERIC_TIMEZONE: {{ .Values.n8n.timezone | default "UTC" }}
-  
-  WEBHOOK_URL: {{ .Values.n8n.webhookUrl | default "http://localhost" }}
+  {{- if eq .Values.n8n.executionMode "queue" }}
   EXECUTIONS_MODE: "queue"
   N8N_DISABLE_PRODUCTION_MAIN_PROCESS: "true"
   OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
+  QUEUE_BULL_REDIS_HOST: {{ include "n8n.valkey.host" . | quote }}
+  QUEUE_BULL_REDIS_PORT: {{ include "n8n.valkey.port" . | quote }}
+  QUEUE_BULL_REDIS_DB: {{ include "n8n.valkey.database" . | quote }}
+  {{- if .Values.valkey.external.username }}
+  QUEUE_BULL_REDIS_USERNAME: {{ .Values.valkey.external.username | quote }}
+  {{- end }}
+  QUEUE_HEALTH_CHECK_ACTIVE: "true"
+  QUEUE_HEALTH_CHECK_PORT: "5679"
+  {{- else }}
+  EXECUTIONS_MODE: "regular"
+  {{- end }}
 
-  EXECUTIONS_DATA_PRUNE: {{ .Values.n8n.data.prune.enabled | quote}}
+  {{- if .Values.n8n.auth.enabled }}
+  N8N_BASIC_AUTH_ACTIVE: "true"
+  N8N_BASIC_AUTH_USER: {{ .Values.n8n.auth.username | quote }}
+  {{- end }}
+
+  GENERIC_TIMEZONE: {{ .Values.n8n.timezone | default "UTC" | quote }}
+  WEBHOOK_URL: {{ .Values.n8n.webhookUrl | default "http://localhost" | quote }}
+
+  EXECUTIONS_DATA_PRUNE: {{ .Values.n8n.data.prune.enabled | quote }}
   EXECUTIONS_DATA_MAX_AGE: {{ .Values.n8n.data.prune.max_age | quote }}
 
   N8N_LOG_LEVEL: {{ .Values.n8n.log_level | default "debug" | quote }}
   DB_LOGGING_ENABLED: {{ .Values.n8n.db_logging_enabled | default "true" | quote }}
   DB_LOGGING_OPTIONS: {{ .Values.n8n.db_logging_options | default "all" | quote }}
-  
   {{- with .Values.n8n.extraEnvs }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
-  
