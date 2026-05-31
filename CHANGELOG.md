@@ -21,6 +21,15 @@ All notable changes to this chart are documented here. This project adheres to
 - Bundled subchart conditions (`postgresql.enabled`, `valkey.enabled`) so the
   subcharts are actually skipped in external mode.
 - helm-unittest suites and CI coverage for subchart / external / regular modes.
+- **`postgresql.bitnami.migrate`** pre-upgrade hook Job that automates the full
+  Bitnami → CloudPirates migration: deletes old Deployments, annotates the
+  Bitnami Secret, deletes the StatefulSet, copies the data directory to the
+  CloudPirates layout, and fixes ownership — all from a single `helm upgrade`.
+- **Bitnami upgrade guard**: `helm upgrade` (with `--dry-run=server` or live)
+  fails with an actionable message when an existing Bitnami Secret fingerprint
+  is detected, preventing silent data loss on blind upgrades.
+- **`postgresql.bitnami.kubectlImage`** to override the kubectl image used by
+  the migration hook (default: `alpine/k8s:1.30.0`).
 
 ### Changed
 - **Bundled PostgreSQL** now uses the CloudPirates `postgres` chart

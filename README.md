@@ -253,8 +253,10 @@ surface. Subchart values are documented upstream
 
 ## Releases & CI
 
-- `lint-test.yml` runs `helm unittest` plus `chart-testing` (lint + install on
-  kind) for the bundled, external and single-process modes.
+- `lint-test.yml` runs three parallel jobs: `unittest` (helm-unittest, no
+  cluster), `lint` (chart-testing lint, no cluster), and `install` (one kind
+  cluster with parallel helm installs for bundled, external, and single-process
+  modes, plus Bitnami guard and full migration smoke tests).
 - `ci-version-bump.yml` bumps the chart version on merge to `main`
   (minor when templates change, otherwise patch) and creates the release.
 - `push-chart.yml` packages and pushes the chart to the OCI registry.
