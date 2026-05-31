@@ -3,7 +3,7 @@ name: Lint and Test Charts
 on: pull_request
 
 jobs:
-  lint-test:
+  unittest:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -14,7 +14,31 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
-          version: v3.8.1
+          version: v3.18.4
+
+      - name: Add Helm repos & build dependencies
+        run: |
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm dependency build ./n8n
+
+      - name: Install helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+
+      - name: Run unit tests
+        run: helm unittest ./n8n
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
 
       - uses: actions/setup-python@v6
         with:
@@ -23,25 +47,199 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.8.0
 
-      - name: Add helm repos
-        run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          
-      - name: Run chart-testing (list-changed)
-        id: list-changed
+      - name: Run chart-testing (lint)
+        run: ct lint --target-branch ${{ github.event.repository.default_branch }} --chart-dirs . --chart-repos valkey=https://valkey.io/valkey-helm/ --validate-maintainers=false --check-version-increment=false
+
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.8.0
+
+      - name: Check if chart changed
+        id: changed
         run: |
           changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }} --chart-dirs .)
-          if [[ -n "$changed" ]]; then
-            echo "::set-output name=changed::true"
-          fi
-
-      - name: Run chart-testing (lint)
-        run: ct lint --target-branch ${{ github.event.repository.default_branch }} --chart-dirs . --validate-maintainers=false --check-version-increment=false
+          [[ -n "$changed" ]] && echo "changed=true" >> "$GITHUB_OUTPUT" || true
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.14.0
-        if: steps.list-changed.outputs.changed == 'true'
+        if: steps.changed.outputs.changed == 'true'
 
-      - name: Run chart-testing (install)
-        if: steps.list-changed.outputs.changed == 'true'
-        run: ct install --target-branch ${{ github.event.repository.default_branch }} --chart-dirs .
+      - name: Add Helm repos & build dependencies
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm dependency build ./n8n
+
+      - name: Pre-create external fixtures
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          kubectl create namespace external
+          kubectl create secret generic pg-cred -n external \
+            --from-literal=postgres-password=testpw
+          kubectl create secret generic n8n-enc -n external \
+            --from-literal=encryption-key=d9d8f70c3165f6393b7df462b09f73e2
+          kubectl run pg-fixture -n external --image=postgres:16 \
+            --env=POSTGRES_PASSWORD=testpw \
+            --env=POSTGRES_USER=n8n \
+            --env=POSTGRES_DB=n8n \
+            --port=5432
+          kubectl expose pod pg-fixture -n external --port=5432
+          kubectl run valkey-fixture -n external \
+            --image=valkey/valkey:8 --port=6379
+          kubectl expose pod valkey-fixture -n external --port=6379
+          kubectl wait pod/pg-fixture pod/valkey-fixture \
+            --for=condition=Ready -n external --timeout=90s
+
+      - name: Install – all scenarios in parallel
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          helm install bundled-queue ./n8n \
+            -f n8n/ci/default-subchart-values.yaml \
+            -n bundled-queue --create-namespace \
+            --wait --timeout 5m > /tmp/bq.log 2>&1 &
+          PID_BQ=$!
+
+          helm install single-process ./n8n \
+            -f n8n/ci/single-process-values.yaml \
+            -n single-process --create-namespace \
+            --wait --timeout 5m > /tmp/sp.log 2>&1 &
+          PID_SP=$!
+
+          helm install external ./n8n \
+            -f n8n/ci/external-pg-values.yaml \
+            -n external \
+            --wait --timeout 5m > /tmp/ex.log 2>&1 &
+          PID_EX=$!
+
+          FAILED=0
+          wait $PID_BQ || { echo "=== bundled-queue failed ==="; cat /tmp/bq.log; FAILED=$((FAILED+1)); }
+          wait $PID_SP || { echo "=== single-process failed ==="; cat /tmp/sp.log; FAILED=$((FAILED+1)); }
+          wait $PID_EX || { echo "=== external failed ==="; cat /tmp/ex.log; FAILED=$((FAILED+1)); }
+          exit $FAILED
+
+      - name: "Upgrade: Bitnami guard must block blind upgrade"
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          # Add the Bitnami 'password' key fingerprint to the bundled-queue Secret
+          PG_PASS=$(kubectl get secret bundled-queue-postgresql \
+            -n bundled-queue -o jsonpath='{.data.postgres-password}')
+          kubectl patch secret bundled-queue-postgresql \
+            -n bundled-queue --type merge \
+            -p "{\"data\":{\"password\":\"${PG_PASS}\"}}"
+
+          # --dry-run=server: lookup works against the live cluster but no
+          # release state is written, so bundled-queue stays in deployed state
+          OUT=$(helm upgrade bundled-queue ./n8n \
+            -f n8n/ci/default-subchart-values.yaml \
+            -n bundled-queue --dry-run=server 2>&1 || true)
+          if echo "$OUT" | grep -q "Detected an existing Bitnami"; then
+            echo "PASS: guard blocked the blind upgrade"
+          else
+            echo "FAIL: guard did not fire"
+            echo "$OUT"
+            exit 1
+          fi
+
+      - name: "Upgrade: Option B in-place migration succeeds"
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          # In the real migration the Bitnami Secret is owned by a different
+          # Helm release, so the new chart never tries to delete it.  In CI the
+          # Secret IS owned by this release, so switching to existingSecret would
+          # cause Helm to delete it (resource drops out of the manifests).
+          # helm.sh/resource-policy=keep prevents that deletion.
+          kubectl annotate secret bundled-queue-postgresql \
+            -n bundled-queue "helm.sh/resource-policy=keep"
+
+          # Delete StatefulSet and its pods; PVC is preserved (StatefulSets
+          # never cascade-delete PVCs).
+          kubectl delete statefulset bundled-queue-postgresql -n bundled-queue
+          kubectl wait --for=delete pod/bundled-queue-postgresql-0 \
+            -n bundled-queue --timeout=60s || true
+
+          # Guard skips because existingSecret is set; CloudPirates reads the
+          # password from the 'password' key; PVC is reused automatically
+          helm upgrade bundled-queue ./n8n \
+            -f n8n/ci/default-subchart-values.yaml \
+            -n bundled-queue \
+            --set postgresql.auth.existingSecret=bundled-queue-postgresql \
+            --set postgresql.auth.secretKeys.adminPasswordKey=password \
+            --wait --timeout 5m
+
+      - name: "Smoke test: Bitnami migration hook preserves data"
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          # Install pinned to PG15 — mirrors a real Bitnami install.
+          # CloudPirates PG<18 stores data at pgdata/ (not <ver>/docker/).
+          helm install bitnami-migrate ./n8n \
+            -f n8n/ci/default-subchart-values.yaml \
+            -n bitnami-migrate --create-namespace \
+            --set-string postgresql.image.tag=15 \
+            --wait --timeout 5m
+
+          # Insert canary row
+          kubectl exec -n bitnami-migrate statefulset/bitnami-migrate-postgresql -- \
+            psql -U n8n -d n8n -c \
+            "CREATE TABLE _canary (v text); INSERT INTO _canary VALUES ('survived');"
+
+          # Add Bitnami 'password' key fingerprint
+          PG_PASS=$(kubectl get secret bitnami-migrate-postgresql \
+            -n bitnami-migrate -o jsonpath='{.data.postgres-password}')
+          kubectl patch secret bitnami-migrate-postgresql \
+            -n bitnami-migrate --type merge \
+            -p "{\"data\":{\"password\":\"${PG_PASS}\"}}"
+
+          # Scale down postgres to safely manipulate PVC
+          kubectl scale statefulset bitnami-migrate-postgresql \
+            -n bitnami-migrate --replicas=0
+          kubectl wait --for=delete pod/bitnami-migrate-postgresql-0 \
+            -n bitnami-migrate --timeout=60s || true
+
+          # Simulate Bitnami layout: copy pgdata/ → data/, remove pgdata/
+          kubectl run pg-sim -n bitnami-migrate --image=busybox --restart=Never \
+            --overrides='{
+              "spec":{
+                "volumes":[{"name":"d","persistentVolumeClaim":{"claimName":"data-bitnami-migrate-postgresql-0"}}],
+                "containers":[{"name":"s","image":"busybox",
+                  "command":["sh","-c","cp -a /d/pgdata/. /d/data/ && rm -rf /d/pgdata && echo done"],
+                  "volumeMounts":[{"name":"d","mountPath":"/d"}]}]}}'
+          kubectl wait pod/pg-sim -n bitnami-migrate --for=jsonpath='{.status.phase}'=Succeeded --timeout=60s
+          kubectl delete pod/pg-sim -n bitnami-migrate
+
+          # Upgrade — hook handles all pre-steps: deletes Deployments,
+          # annotates Secret, deletes StatefulSet + waits, copies data/ → pgdata/
+          helm upgrade bitnami-migrate ./n8n \
+            -f n8n/ci/default-subchart-values.yaml \
+            -n bitnami-migrate \
+            --set-string postgresql.image.tag=15 \
+            --set postgresql.auth.existingSecret=bitnami-migrate-postgresql \
+            --set postgresql.auth.secretKeys.adminPasswordKey=password \
+            --set postgresql.bitnami.migrate=true \
+            --wait --timeout 5m
+
+          # Verify canary data survived
+          RESULT=$(kubectl exec -n bitnami-migrate statefulset/bitnami-migrate-postgresql -- \
+            psql -U n8n -d n8n -t -c "SELECT v FROM _canary;" 2>&1)
+          if echo "$RESULT" | grep -q "survived"; then
+            echo "PASS: data survived migration"
+          else
+            echo "FAIL: data lost after migration"
+            echo "$RESULT"
+            exit 1
+          fi
