@@ -1,0 +1,176 @@
+{{- if and .Values.postgresql.enabled .Values.postgresql.bitnami.migrate -}}
+# Pre-upgrade hook: automates the full Bitnami → CloudPirates migration.
+#
+# What it does (in order):
+#   1. Deletes old n8n Deployments (selector labels changed — immutable field)
+#   2. Annotates the Bitnami Secret with resource-policy=keep so Helm won't
+#      prune it when existingSecret is set
+#   3. Deletes the Bitnami StatefulSet and waits for the pod to terminate so
+#      the PVC is free to be written to
+#   4. Copies Bitnami's data directory (data/) to the CloudPirates layout:
+#        PG <18 → pgdata/
+#        PG ≥18 → <major>/docker/
+#   5. Fixes ownership to UID/GID 999 (the postgres process user)
+#
+# The Job is idempotent — safe to retry if helm upgrade is interrupted.
+# Remove postgresql.bitnami.migrate: true after the upgrade succeeds.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "n8n.fullname" . }}-pg-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "n8n.fullname" . }}-pg-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "n8n.fullname" . }}-pg-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "n8n.fullname" . }}-pg-migrate
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "n8n.fullname" . }}-pg-migrate
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "n8n.fullname" . }}-pg-bitnami-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "n8n.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "n8n.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pg-migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "n8n.fullname" . }}-pg-migrate
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: data-{{ include "n8n.pg.fullname" . }}-0
+      initContainers:
+        - name: pre-steps
+          image: {{ .Values.postgresql.bitnami.kubectlImage }}
+          env:
+            - name: NS
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: REL_FULLNAME
+              value: {{ include "n8n.fullname" . }}
+            - name: PG_FULLNAME
+              value: {{ include "n8n.pg.fullname" . }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+
+              # Step 1: delete old Deployments (selector labels changed — immutable)
+              for dep in main worker webhook; do
+                kubectl delete deployment "${REL_FULLNAME}-${dep}" \
+                  -n "$NS" --ignore-not-found
+              done
+              echo "Deployments deleted (or already gone)"
+
+              # Step 2: annotate Secret so Helm won't prune it when existingSecret is set
+              if kubectl get secret "$PG_FULLNAME" -n "$NS" >/dev/null 2>&1; then
+                kubectl annotate secret "$PG_FULLNAME" -n "$NS" \
+                  helm.sh/resource-policy=keep --overwrite
+                echo "Secret annotated with resource-policy=keep"
+              fi
+
+              # Step 3: delete Bitnami StatefulSet and wait for pod to terminate
+              if kubectl get statefulset "$PG_FULLNAME" -n "$NS" >/dev/null 2>&1; then
+                kubectl delete statefulset "$PG_FULLNAME" -n "$NS"
+                echo "Waiting for postgres pod to terminate..."
+                kubectl wait pod "${PG_FULLNAME}-0" \
+                  -n "$NS" --for=delete --timeout=120s 2>/dev/null || true
+              fi
+              echo "Pre-steps complete"
+      containers:
+        - name: migrate-data
+          image: busybox
+          securityContext:
+            runAsUser: 0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              SRC=/pgvol/data
+
+              if [ ! -f "$SRC/PG_VERSION" ]; then
+                echo "No Bitnami data at $SRC — nothing to migrate."
+                exit 0
+              fi
+
+              # Determine CloudPirates destination from the PG major version
+              # in the source data (PG<18 → pgdata/, PG≥18 → <major>/docker/)
+              PG_MAJOR=$(cat "$SRC/PG_VERSION" | cut -d. -f1)
+              if [ "$PG_MAJOR" -ge 18 ]; then
+                DST="/pgvol/${PG_MAJOR}/docker"
+              else
+                DST="/pgvol/pgdata"
+              fi
+
+              if [ -f "$DST/PG_VERSION" ]; then
+                echo "CloudPirates data already at $DST — skipping."
+                exit 0
+              fi
+
+              echo "Migrating Bitnami PG${PG_MAJOR} data: $SRC -> $DST"
+              mkdir -p "$DST"
+              cp -a "$SRC/." "$DST/"
+              chown -R 999:999 "$DST"
+              echo "Done. Set postgresql.bitnami.migrate: false after this upgrade."
+          volumeMounts:
+            - name: pgdata
+              mountPath: /pgvol
+{{- end }}
