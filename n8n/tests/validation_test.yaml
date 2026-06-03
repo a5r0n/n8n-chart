@@ -1,0 +1,43 @@
+suite: validation
+templates:
+  - templates/configmap.yaml
+release:
+  name: n8n
+  namespace: default
+tests:
+  - it: fails when no encryption key is provided
+    asserts:
+      - failedTemplate:
+          errorMessage: "Set n8n.encryptionKey (the chart creates a Secret) or n8n.existingSecret (a Secret you pre-created). The encryption key protects all stored credentials."
+
+  - it: fails when postgresql is disabled without an external host
+    set:
+      n8n.encryptionKey: testkey
+      postgresql.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "postgresql.enabled=false requires postgresql.external.host (and postgresql.external.existingSecret for the password)."
+
+  - it: fails when queue mode has no Valkey
+    set:
+      n8n.encryptionKey: testkey
+      valkey.enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "queue execution mode requires Valkey: set valkey.enabled=true or valkey.external.host, or switch n8n.executionMode to 'regular'."
+
+  - it: fails on the legacy redis values key
+    set:
+      n8n.encryptionKey: testkey
+      redis.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "The 'redis' values key was renamed to 'valkey' in chart 0.5.0. Move your redis.* settings under valkey.* (use valkey.external.* for an external instance)."
+
+  - it: fails on an invalid executionMode
+    set:
+      n8n.encryptionKey: testkey
+      n8n.executionMode: bogus
+    asserts:
+      - failedTemplate:
+          errorMessage: 'n8n.executionMode must be ''queue'' or ''regular'', got "bogus"'

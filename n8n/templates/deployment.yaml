@@ -10,10 +10,11 @@ spec:
   selector:
     matchLabels:
       {{- include "n8n.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: main
   template:
     metadata:
       annotations:
-        checksum/config: {{ toJson $.Values.n8n | sha256sum | trunc 63}}
+        {{- include "n8n.checksumAnnotations" . | nindent 8 }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -35,8 +36,9 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
-            - configMapRef:
-                name: {{ include "n8n.fullname" . }}
+            {{- include "n8n.envFrom" . | nindent 12 }}
+          env:
+            {{- include "n8n.secretEnv" . | nindent 12 }}
           ports:
             - name: http
               containerPort: 5678
@@ -65,6 +67,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- if eq .Values.n8n.executionMode "queue" }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -72,15 +75,17 @@ metadata:
   name: {{ include "n8n.fullname" . }}-worker
   labels:
     {{- include "n8n.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.worker.replicaCount | default .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "n8n.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
   template:
     metadata:
       annotations:
-        checksum/config: {{ toJson $.Values.n8n | sha256sum | trunc 63}}
+        {{- include "n8n.checksumAnnotations" . | nindent 8 }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -100,9 +105,9 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          command: 
+          command:
             - n8n
-          args: 
+          args:
             - worker
           ports:
             - name: healthz
@@ -123,10 +128,10 @@ spec:
               value: "5679"
             - name: N8N_RUNNERS_BROKER_PORT
               value: "5678"
+            {{- include "n8n.secretEnv" . | nindent 12 }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
-            - configMapRef:
-                name: {{ include "n8n.fullname" . }}
+            {{- include "n8n.envFrom" . | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
@@ -154,10 +159,11 @@ spec:
   selector:
     matchLabels:
       {{- include "n8n.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: webhook
   template:
     metadata:
       annotations:
-        checksum/config: {{ toJson $.Values.n8n | sha256sum | trunc 63}}
+        {{- include "n8n.checksumAnnotations" . | nindent 8 }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -183,8 +189,9 @@ spec:
             - webhook
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
-            - configMapRef:
-                name: {{ include "n8n.fullname" . }}
+            {{- include "n8n.envFrom" . | nindent 12 }}
+          env:
+            {{- include "n8n.secretEnv" . | nindent 12 }}
           ports:
             - name: http
               containerPort: 5678
@@ -211,4 +218,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
----
+{{- end }}

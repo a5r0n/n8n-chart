@@ -20,6 +20,12 @@
       "bumpVersion": "patch"
     },
     {
+      "description": "Bundled subcharts: CloudPirates postgres + valkey-io valkey",
+      "matchManagers": ["helmv3"],
+      "matchPackageNames": ["postgres", "valkey"],
+      "bumpVersion": "patch"
+    },
+    {
       "matchPaths": ["n8n/templates/**/*.yaml"],
       "bumpVersion": "minor"
     },

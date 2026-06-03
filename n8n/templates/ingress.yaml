@@ -36,11 +36,13 @@ spec:
                 name: {{ include "n8n.fullname" . }}-main
                 port: 
                   name: http
+          {{- if eq .Values.n8n.executionMode "queue" }}
           - path: /webhook/
             pathType: Prefix
             backend:
               service:
                 name: {{ include "n8n.fullname" . }}-webhook
-                port: 
+                port:
                   name: http
+          {{- end }}
   {{- end }}

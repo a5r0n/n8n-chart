@@ -13,6 +13,10 @@ jobs:
         id: checkout
       - uses: azure/setup-helm@v5
         id: install_helm
+      - name: Add Helm repos & build dependencies
+        run: |
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm dependency build ./n8n
       - name: Build Helm chart
         run: |
           helm package ./n8n
