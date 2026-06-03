@@ -1,16 +1,21 @@
 name: Push Helm chart to OCI
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["CI Version Bump"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v6
         id: checkout
+        with:
+          ref: main
       - uses: azure/setup-helm@v5
         id: install_helm
       - name: Add Helm repos & build dependencies
