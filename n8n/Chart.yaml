@@ -32,4 +32,4 @@ version: 0.5.0
 # It is recommended to use it with quotes.
 
 # renovate: image=ghcr.io/n8n-io/n8n
-appVersion: "2.23.1"
+appVersion: "2.25.2"
