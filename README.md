@@ -10,7 +10,7 @@ Based on n8n's [queue-mode scaling guide](https://docs.n8n.io/hosting/scaling/qu
 The chart is published to an OCI registry, so no `helm repo add` is needed:
 
 ```bash
-helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.4.11 -f my-values.yaml
+helm install n8n oci://ghcr.io/a5r0n/charts/n8n --version 0.5.1
 ```
 
 A minimal `my-values.yaml`:
