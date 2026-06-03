@@ -7,7 +7,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/n8n-io/n8n
+  repository: n8nio/n8n
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
