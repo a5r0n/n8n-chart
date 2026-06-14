@@ -73,7 +73,7 @@ postgresql:
     migrate: false
     # Image used by the pre-upgrade Job init container to run kubectl commands.
     # Must be a public image with kubectl available.
-    kubectlImage: alpine/k8s:1.30.0
+    kubectlImage: alpine/k8s:1.36.2
 
   external:
     # Set host (and existingSecret) when postgresql.enabled=false.
