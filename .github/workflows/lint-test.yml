@@ -45,7 +45,7 @@ jobs:
           python-version: '3.x'
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.8.0
+        uses: helm/chart-testing-action@v2.9.0
 
       - name: Run chart-testing (lint)
         run: ct lint --target-branch ${{ github.event.repository.default_branch }} --chart-dirs . --chart-repos valkey=https://valkey.io/valkey-helm/ --validate-maintainers=false --check-version-increment=false
@@ -68,7 +68,7 @@ jobs:
           python-version: '3.x'
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.8.0
+        uses: helm/chart-testing-action@v2.9.0
 
       - name: Check if chart changed
         id: changed
